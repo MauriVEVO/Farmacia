@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.Menu?>
+<?import javafx.scene.control.MenuBar?>
+<?import javafx.scene.control.MenuItem?>
+<?import javafx.scene.input.KeyCodeCombination?>
+<?import javafx.scene.layout.AnchorPane?>
+
+<AnchorPane id="AnchorPane" prefHeight="400.0" prefWidth="600.0" xmlns="http://javafx.com/javafx/23.0.1" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.mycompany.farmacia.MenuPrincipalController">
+   <children>
+      <MenuBar prefHeight="26.0" prefWidth="600.0" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0">
+        <menus>
+          <Menu mnemonicParsing="false" text="Formularios">
+            <items>
+                  <MenuItem mnemonicParsing="false" onAction="#cliente" text="Clientes">
+                     <accelerator>
+                        <KeyCodeCombination alt="ANY" code="C" control="UP" meta="UP" shift="UP" shortcut="UP" />
+                     </accelerator>
+                  </MenuItem>
+              <MenuItem mnemonicParsing="false" text="Close" />
+            </items>
+          </Menu>
+          <Menu mnemonicParsing="false" text="Movimientos">
+            <items>
+              <MenuItem mnemonicParsing="false" onAction="#mostrarFactura" text="Factura" />
+            </items>
+          </Menu>
+          <Menu mnemonicParsing="false" text="Informes">
+            <items>
+                  <Menu mnemonicParsing="false" text="Clientes">
+                    <items>
+                      <MenuItem mnemonicParsing="false" onAction="#porNumero" text="ID" />
+                    <MenuItem mnemonicParsing="false" onAction="#mostrarInforme" text="Todos" />
+                    </items>
+                  </Menu>
+            </items>
+          </Menu>
+            <Menu mnemonicParsing="false" text="Ayuda">
+              <items>
+                <MenuItem mnemonicParsing="false" text="Action 1" />
+              </items>
+            </Menu>
+        </menus>
+      </MenuBar>
+   </children>
+</AnchorPane>

@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.TableColumn?>
+<?import javafx.scene.control.TableView?>
+<?import javafx.scene.control.TextField?>
+<?import javafx.scene.layout.AnchorPane?>
+<?import javafx.scene.layout.Pane?>
+
+
+<AnchorPane id="AnchorPane" prefHeight="314.0" prefWidth="591.0" xmlns:fx="http://javafx.com/fxml/1" xmlns="http://javafx.com/javafx/21" fx:controller="com.mycompany.farmacia.BuscarClienteController">
+   <children>
+      <Pane layoutX="14.0" layoutY="21.0" prefHeight="272.0" prefWidth="551.0" style="-fx-border-style: solid; -fx-background-color: gray;">
+         <children>
+            <TextField fx:id="txtBuscar" layoutX="15.0" layoutY="7.0" onKeyReleased="#busqueda" prefHeight="27.0" prefWidth="322.0" promptText="🔍 " style="-fx-border-radius: 5px; -fx-border-style: solid;" />
+            <TableView fx:id="tablaCliente" layoutX="14.0" layoutY="47.0" onMouseClicked="#mostrarFila" prefHeight="200.0" prefWidth="506.0">
+               <columns>
+                  <TableColumn fx:id="columCod" prefWidth="65.0" text="Código" />
+                  <TableColumn fx:id="columNom" prefWidth="240.0" text="Nombres" />
+                  <TableColumn fx:id="columApe" minWidth="0.0" prefWidth="196.0" text="Apellidos" />
+               </columns>
+            </TableView>
+         </children>
+      </Pane>
+   </children>
+</AnchorPane>
