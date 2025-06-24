@@ -96,21 +96,23 @@ public class detalleVenta extends conexion implements Sentencias{
 
     @Override
     public boolean insertar() {
-        String sql="insert into detalle_venta (Medicamento_ID_medicamento, Venta_id_Venta, cantidad) values(?,?,?)";
-        try( 
-            Connection con=getCon();
-            PreparedStatement stm=con.prepareStatement(sql)){
-            stm.setInt(1,this.codProd);
-            stm.setInt(2,this.cod);
-            stm.setInt(3,this.cantidad);
+        String sql = "INSERT INTO detalle_venta "
+                   + "(Medicamento_ID_medicamento, Venta_id_Venta, cantidad, subTotal) "
+                   + "VALUES (?, ?, ?, ?)";
+        try (Connection con = getCon();
+             PreparedStatement stm = con.prepareStatement(sql)) {
+            stm.setInt(1, this.codProd);
+            stm.setInt(2, this.cod);       // id de la venta
+            stm.setInt(3, this.cantidad);
+            stm.setDouble(4, this.subTotal);
             stm.executeUpdate();
             return true;
         } catch (SQLException ex) {
             Logger.getLogger(detalleVenta.class.getName()).log(Level.SEVERE, null, ex);
             return false;
         }
-
     }
+
 
     @Override
     public ArrayList consulta() {

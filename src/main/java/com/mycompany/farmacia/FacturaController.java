@@ -146,21 +146,39 @@ public class FacturaController extends conexion implements Initializable{
     
     @FXML
     private void nuevo(ActionEvent event) {
-        //TxtNroFactura.setDisable(false);
-        //TxtNroFactura.requestFocus();
+        // habilitaciones varias…
         BtnCliente.setDisable(false);
-        //FechaFactura.setDisable(false);
+        btnBuscarProd.setDisable(false);
+        BtnGrabar.setDisable(false);
+        BtnCancelar.setDisable(false);
         BtnNuevo.setDisable(true);
-        //metodo de pago
         MenuFactura.setDisable(false);
-       
-        MenuFactura.setPromptText("Seleccione Método");
-        MenuFactura.getItems().add("Efectivo");
-        MenuFactura.getItems().add("Tarjeta de Débito");
-        MenuFactura.getItems().add("Tarjeta de Crédito");
-        //fecha actual
         FechaFactura.setValue(LocalDate.now());
+        
+        MenuFactura.getItems().clear();
+        MenuFactura.getItems().addAll("Efectivo", "Tarjeta de Débito", "Tarjeta de Crédito");
+        MenuFactura.setDisable(false);
+        MenuFactura.setPromptText("Seleccione Método");
+
+        // –– Aquí consultamos el próximo ID ––
+        String sql =
+        "SELECT AUTO_INCREMENT " +
+        "  FROM information_schema.TABLES " +
+        " WHERE TABLE_SCHEMA = 'farmacia25' " +
+        "   AND TABLE_NAME   = 'venta'";
+        try ( Connection con = getCon();
+              PreparedStatement pst = con.prepareStatement(sql);
+              ResultSet rs = pst.executeQuery() ) {
+            if (rs.next()) {
+                TxtNroFactura.setText(rs.getString("AUTO_INCREMENT"));
+                TxtNroFactura.setEditable(false);
+            }
+        } catch (SQLException ex) {
+            new Alert(Alert.AlertType.ERROR, "Error al obtener próximo nro: " + ex.getMessage())
+                .showAndWait();
+        }
     }
+
 
     @FXML
     private void buscarCliente(ActionEvent event) {
@@ -237,83 +255,89 @@ public class FacturaController extends conexion implements Initializable{
     }
 
     @FXML
-    private void grabar(ActionEvent event) throws SQLException {
-        //mostramos un mensaje para grabar
-        Alert alerta=new Alert(Alert.AlertType.CONFIRMATION);
-        alerta.setTitle("El sistema comunica;");
-        alerta.setHeaderText(null);
-        alerta.setContentText("¿Desea grabar la venta?");
-        Optional<ButtonType> opcion=alerta.showAndWait();
-        if(opcion.get()==ButtonType.OK){//si presiona ok
-            //enviamos los datos al objeto previamente creado de forma global
-            //v.setNro(Integer.parseInt(TxtNroFactura.getText()));
-            v.setFecha(FechaFactura.getValue().toString());
-            v.setMetodo(MenuFactura.getSelectionModel().getSelectedItem());
-            v.setCodCliente(codCliente);
-            v.setCodEmpleado(1);// debe existir en la base  de dato
-            v.setTotal(suma);
-            if(v.insertar()){//llama al metodo insertar de venta
-                TxtNroFactura.setText(String.valueOf(v.getNro()));
-                BtnImprimir.setDisable(false);
-                TxtNroFactura.setDisable(false);
-                TxtNroFactura.setEditable(false);
-                //recorremos la lista detalle venta y obtenemos los valores y los enviamos al modelo detalle
-                try (Connection con = getCon()){
-                    for (detalleVenta object : registrosDetalle) {
-                        String checkSql = "SELECT cantidad FROM detalle_venta "
-                                            + "WHERE Medicamento_ID_medicamento = ? AND Venta_id_Venta = ?";
-                        try (PreparedStatement check = con.prepareStatement(checkSql)){
-                            check.setInt(1, object.getCodProd());
-                            check.setInt(2, v.getNro());
-                            ResultSet rs = check.executeQuery();
-                            if (rs.next()) {
-                                int nuevaCant = rs.getInt("cantidad") + object.getCantidad();
-                                String updSql = "UPDATE detalle_venta SET cantidad = ?, subTotal = ? "
-                                              + "WHERE Medicamento_ID_medicamento = ? AND Venta_id_Venta = ?";
-                                try (PreparedStatement upd = con.prepareStatement(updSql)) {
-                                    upd.setInt(1, nuevaCant);
-                                    upd.setDouble(2, nuevaCant * object.getPrecio());
-                                    upd.setInt(3, object.getCodProd());
-                                    upd.setInt(4, v.getNro());
-                                    upd.executeUpdate();
-                                }
-                            } else {
-                                String insSql = "INSERT INTO detalle_venta "
-                                              + "(Medicamento_ID_medicamento, Venta_id_Venta, cantidad, subTotal) "
-                                              + "VALUES (?, ?, ?, ?)";
-                                try (PreparedStatement ins = con.prepareStatement(insSql)) {
-                                    ins.setInt(1, object.getCodProd());
-                                    ins.setInt(2, v.getNro());
-                                    ins.setInt(3, object.getCantidad());
-                                    ins.setDouble(4, object.getSubTotal());
-                                    ins.executeUpdate();
-                                }
+    private void grabar(ActionEvent event) {
+        // 1) Confirmación
+        Alert confirm = new Alert(Alert.AlertType.CONFIRMATION, "¿Desea grabar la venta?");
+        confirm.setHeaderText(null);
+        if (confirm.showAndWait().orElse(ButtonType.CANCEL) != ButtonType.OK) {
+            return;
+        }
+
+        // 2) Preparamos el objeto venta y lo insertamos
+        v.setFecha(FechaFactura.getValue().toString());
+        v.setMetodo(MenuFactura.getSelectionModel().getSelectedItem());
+        v.setCodCliente(codCliente);
+        v.setCodEmpleado(1);
+        v.setTotal(suma);
+
+        if (!v.insertar()) {
+            new Alert(Alert.AlertType.ERROR, "Error al insertar la venta").showAndWait();
+            return;
+        }
+
+        // 3) Mostramos el número de factura generado
+        TxtNroFactura.setText(String.valueOf(v.getNro()));
+        TxtNroFactura.setDisable(false);
+        TxtNroFactura.setEditable(false);
+        BtnImprimir.setDisable(false);
+
+        // 4) Abrimos la conexión y procesamos todos los detalles
+        try (Connection con = getCon()) {
+            con.setAutoCommit(false);   // agrupa en transacción
+
+            for (detalleVenta item : registrosDetalle) {
+                // 1) Comprobar si existe
+                String checkSql =
+                    "SELECT cantidad, subTotal FROM detalle_venta "
+                  + "WHERE Medicamento_ID_medicamento = ? AND Venta_id_Venta = ?";
+                try (PreparedStatement check = con.prepareStatement(checkSql)) {
+                    check.setInt(1, item.getCodProd());
+                    check.setInt(2, v.getNro());
+                    try (ResultSet rs = check.executeQuery()) {
+                        if (rs.next()) {
+                            // 2a) UPDATE con subTotal
+                            int nuevaCant = rs.getInt("cantidad") + item.getCantidad();
+                            double nuevoSub = rs.getDouble("subTotal") + item.getSubTotal();
+                            String updSql =
+                                "UPDATE detalle_venta "
+                              + "SET cantidad = ?, subTotal = ? "
+                              + "WHERE Medicamento_ID_medicamento = ? AND Venta_id_Venta = ?";
+                            try (PreparedStatement upd = con.prepareStatement(updSql)) {
+                                upd.setInt(1, nuevaCant);
+                                upd.setDouble(2, nuevoSub);
+                                upd.setInt(3, item.getCodProd());
+                                upd.setInt(4, v.getNro());
+                                upd.executeUpdate();
+                            }
+                        } else {
+                            // 2b) INSERT con subTotal
+                            String insSql =
+                                "INSERT INTO detalle_venta "
+                              + "(Medicamento_ID_medicamento, Venta_id_Venta, cantidad, subTotal) "
+                              + "VALUES (?, ?, ?, ?)";
+                            try (PreparedStatement ins = con.prepareStatement(insSql)) {
+                                ins.setInt(1, item.getCodProd());
+                                ins.setInt(2, v.getNro());
+                                ins.setInt(3, item.getCantidad());
+                                ins.setDouble(4, item.getSubTotal());
+                                ins.executeUpdate();
                             }
                         }
-                            //dv.setCod(Integer.parseInt(TxtNroFactura.getText()));
-                            dv.setCod(v.getNro());
-                            dv.setCodProd(object.getCodProd());
-                            dv.setCantidad(object.getCantidad());
-                            dv.insertar();   //llama al metodo insertar de detalle venta
                     }
                 }
-                    //mensaje de confirmacion
-                        Alert alertaIn=new Alert(Alert.AlertType.INFORMATION);
-                        alertaIn.setTitle("El sistema comunica:");
-                        alertaIn.setHeaderText(null);
-                        alertaIn.setContentText("Insertado correctamente en la base de datos");
-                        alertaIn.show();
-                        //habilitar Imprimir
-                         BtnImprimir.setDisable(false);
-                          //mensaje de error
-            }else{
-                Alert alertaIn=new Alert(Alert.AlertType.ERROR);
-                alertaIn.setTitle("El sistema comunica:");
-                alertaIn.setHeaderText(null);
-                alertaIn.setContentText("Error. Registro no insertado.");
-                alertaIn.show();
             }
+
+
+            // 5) Confirmamos la transacción
+            con.commit();
+            new Alert(Alert.AlertType.INFORMATION, "Venta y detalles guardados correctamente")
+                .showAndWait();
+
+        } catch (SQLException ex) {
+            new Alert(Alert.AlertType.ERROR, "Error al grabar detalles: " + ex.getMessage())
+                .showAndWait();
         }
-        cancelar(event);//ejecuta el boton cancelar
+
+        // Ya no llamamos cancelar(event) aquí, para que el número permanezca visible
     }
 }
